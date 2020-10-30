@@ -12,6 +12,7 @@ let rooms = [];
 app.use(express.static("public"));
 
 io.on("connection", (socket) => {
+    console.log("Hello friend");
     console.log("New connection: " + socket.id);
     socket.emit("own-id", socket.id);
     socket.on("presentation", (clientInfo) => {
