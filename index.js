@@ -3,6 +3,8 @@ const http = require("http");
 const app = express();
 const server = http.createServer(app);
 const socket = require("socket.io");
+
+const port = process.env.PORT || 8000;
 const io = socket(server);
 
 let rooms = [];
@@ -73,4 +75,4 @@ io.on("connection", (socket) => {
     });
 });
 
-server.listen(8000, () => console.log("Server running on port 8000"));
+server.listen(port, () => console.log(`Server is running on port ${port}`));
