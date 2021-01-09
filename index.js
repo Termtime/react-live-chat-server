@@ -12,7 +12,6 @@ let rooms = [];
 app.use(express.static("public"));
 
 io.on("connection", (socket) => {
-    console.log("Hello friend");
     console.log("New connection: " + socket.id);
     socket.emit("own-id", socket.id);
     socket.on("presentation", (clientInfo) => {
@@ -20,7 +19,6 @@ io.on("connection", (socket) => {
             username: clientInfo.username,
             id: clientInfo.id,
         };
-        // clients.push(clientInfo);
 
         socket.join(clientInfo.room);
         //If the room exists, append to the room
@@ -28,7 +26,7 @@ io.on("connection", (socket) => {
         if (room) {
             room.clients.push(client);
         } else {
-            //else, add the room
+            //else, create and add the room
             room = {
                 id: clientInfo.room,
                 clients: [client],
@@ -41,38 +39,45 @@ io.on("connection", (socket) => {
     });
 
     socket.on("send-msg", (msg) => {
-        console.log("Message sent: " + msg.body);
-        console.log("roomID on sent msg:", msg.roomId);
+        console.log(`Message sent: ${msg.body} to room: ${msg.roomId}`);
         io.to(msg.roomId).emit("msg", msg);
     });
 
-    socket.on("isTyping", () => {
-        console.log("client is typing");
-        console.log(socket.rooms);
-        var roomId = socket.rooms[Object.keys(socket.rooms)[0]];
+    socket.on("isTyping", (roomId) => {
+        console.log(`${socket.id} is Typing in room: ${roomId}`);
         socket.to(roomId).broadcast.emit("isTyping", socket.id);
     });
 
-    socket.on("clientStoppedTyping", (id) => {
-        console.log("client stopped typing");
-        var roomId = socket.rooms[Object.keys(socket.rooms)[0]];
-        socket.to(roomId).broadcast.emit("stoppedTyping", id);
+    socket.on("clientStoppedTyping", (roomId) => {
+        console.log(`${socket.id} stopped Typing in room ${roomId}`);
+        socket.to(roomId).broadcast.emit("stoppedTyping", socket.id);
     });
+
     socket.on("disconnecting", (reason) => {
-        console.log("Disconnecting user: " + socket.id);
-        var roomId = socket.rooms[Object.keys(socket.rooms)[0]];
-        console.log(roomId);
-        console.log(rooms);
-        if (roomId) {
-            var room = rooms.find((room) => room.id === roomId);
-            console.log(room);
-            if (room) {
-                room.clients = room.clients.filter(
-                    (user) => user.id !== socket.id
-                );
-                io.to(roomId).emit("userlist-update", room.clients);
+        console.log(
+            `DISCONNECT - Disconnecting user ${socket.id} from all rooms`
+        );
+        for (roomId of Object.values(socket.rooms)) {
+            if (roomId) {
+                var room = rooms.find((room) => room.id === roomId);
+                if (room) {
+                    room.clients = room.clients.filter(
+                        (user) => user.id !== socket.id
+                    );
+                    io.to(roomId).emit("userlist-update", room.clients);
+                }
             }
         }
+    });
+
+    socket.on("leave", (roomId) => {
+        console.log(`LEAVE - user ${socket.id} leaving room: ${roomId}`);
+        socket.leave(roomId);
+        //update room clients list
+        let room = rooms.find((room) => room.id === roomId);
+        room.clients = room.clients.filter((user) => user.id !== socket.id);
+        //push the changes to the room
+        io.to(roomId).emit("userlist-update", room.clients);
     });
 });
 
